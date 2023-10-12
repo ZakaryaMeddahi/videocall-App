@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.min.js"></script>
+  <script src="https://kit.fontawesome.com/60047068a8.js" crossorigin="anonymous"></script>
+  <title>Real Chat 😄</title>
+</head>
+<body>
+  <main>
+    <div class="connected-users">
+      <h3>Online Users</h3>
+      <hr>
+      <div class="users-container"></div>
+    </div>
+    <div class="video-call_container">
+      <div id="video-call_local-video" class="local_video-container">
+        <video id="local-video" autoplay muted></video>
+      </div>
+      <div id="video-call_remote-video" class="remote_video-container">
+        <video id="remote-video" autoplay></video>
+        <button id="end-call" class="end-call">
+          <i class="fa-solid fa-phone-slash"></i>
+          End Call
+        </button>
+      </div>
+    </div>
+    <div class="overlay"></div>
+    <div class="user-info_form">
+      <form>
+        <h3>Enter Your Username</h3>
+        <label for="username"></label>
+        <input id="username" type="text" placeholder="Username" minlength="2" required>
+        <button id="submit" type="submit">Enter</button>
+      </form>
+    </div>
+  </main>
+  <script src="js/script.js"></script>
+</body>
+</html>
