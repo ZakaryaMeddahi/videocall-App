@@ -1,6 +1,6 @@
-import config from "../config";
+import config from "../config/index.js";
 
-const url = config.production.url;
+const url = config.development.url;
 const socket = io(url, {
   withCredentials: true
 });
@@ -90,13 +90,13 @@ const getVideos = async () => {
   handleTrack();
 }
 
-const callUser = () => {
-  const onlineUsers = document.querySelectorAll('.user');
-  console.log(onlineUsers.length);
-  onlineUsers.forEach(user => {
-    listenToClick(user);
-  });
-}
+// const callUser = () => {
+//   const onlineUsers = document.querySelectorAll('.user');
+//   console.log(onlineUsers.length);
+//   onlineUsers.forEach(user => {
+//     listenToClick(user);
+//   });
+// }
 
 const listenToCall = () => {
   socket.on('call-made', async ({ offer, caller }) => {
@@ -125,10 +125,10 @@ const endCall = () => {
   const endCallButton = document.getElementById('end-call');
   endCallButton.addEventListener('click', () => {
     console.log('end call');
-    const localVideo = document.getElementById('local-video');
+    const stream = document.getElementById('local-video').srcObject;
     const remoteVideo = document.getElementById('remote-video');
     const endCallButton = document.getElementById('end-call');
-    localVideo.getTracks().forEach(track => track.stop());
+    stream.getTracks().forEach(track => track.stop());
     remoteVideo.srcObject = null;
     endCallButton.classList.remove('visible');
     console.log('User' + user);
@@ -139,10 +139,10 @@ const endCall = () => {
 const callEnded = () => {
   socket.on('call-ended', () => {
     console.log('call ended');
-    const localVideo = document.getElementById('local-video').srcObject;
+    const stream = document.getElementById('local-video').srcObject;
     const remoteVideo = document.getElementById('remote-video');
     const endCallButton = document.getElementById('end-call');
-    localVideo.getTracks().forEach(track => track.stop());
+    stream.getTracks().forEach(track => track.stop());
     remoteVideo.srcObject = null;
     endCallButton.classList.remove('visible');
   });
