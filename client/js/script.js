@@ -1,6 +1,6 @@
 import config from "../config";
 
-const url = config.development.url;
+const url = config.production.url;
 const socket = io(url, {
   withCredentials: true
 });

@@ -3,7 +3,7 @@ const config = {
     url: 'http://127.0.0.1:3000'
   },
   production: {
-    url: 'https://example.com'
+    url: 'https://video-chat-jndc.onrender.com'
   }
 };
 
