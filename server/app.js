@@ -34,6 +34,13 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('users-list', [user]);
   });
 
+  socket.on('ice-candidate', ({ candidate, to }) => {
+    socket.to(to).emit('candidate', {
+      candidate,
+      from: socket.id
+    });
+  })
+
   socket.on('call-user', ({ offer, to }) => {
     socket.to(to).emit('call-made', {
       offer,

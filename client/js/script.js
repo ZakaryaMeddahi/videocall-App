@@ -5,16 +5,36 @@ const socket = io(url, {
   withCredentials: true
 });
 
-const peerConnection = new RTCPeerConnection();
-let user;
+const servers = {
+  iceServers: [
+    {
+      urls: ['stun:stun.l.google.com:19302']
+    }
+  ]
+};
+
+const peerConnection = new RTCPeerConnection(servers);
+let localStream;
+let remoteStream;
+let correspondingUser;
+
+// const initializeConnection = () => {
+//   return new Promise((resolve, reject) => {
+//     const peerConnection = new RTCPeerConnection(servers);
+//     resolve(peerConnection);
+//   });
+// }
 
 const listenToClick = (card) => {
-  card.addEventListener('click', async e => {
+  card.addEventListener('click', async () => {
+    // peerConnection = new RTCPeerConnection(servers);;
+    console.log(peerConnection);
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
+    localICECondidate(); // Listen To Local ICE Candidates
     const endCallButton = document.getElementById('end-call');
     endCallButton.classList.add('visible');
-    user = card.id;
+    correspondingUser = card.id;
     socket.emit('call-user', {
       offer,
       to: card.id
@@ -22,8 +42,6 @@ const listenToClick = (card) => {
     console.log(offer);
   });
 }
-
-
 
 const userCard = ({ id, username }) => {
   const card = document.createElement('div');
@@ -57,7 +75,7 @@ const getUsers = () => {
 const removeUser = () => {
   socket.on('remove-user', (userId) => {
     const userCard = document.getElementById(userId);
-    if(user === userCard.id) {
+    if(correspondingUser === userCard.id) {
       const remoteVideo = document.getElementById('remote-video');
       const endCallButton = document.getElementById('end-call');
       remoteVideo.srcObject = null;
@@ -70,22 +88,24 @@ const removeUser = () => {
 const handleTrack = () => {
   const remoteVideo = document.getElementById('remote-video');
   peerConnection.ontrack = (event) => {
-    remoteVideo.srcObject = event.streams[0];
+    remoteStream = event.streams[0];
+    remoteVideo.srcObject = remoteStream;
   }
 }
 
 const getVideos = async () => {
   const localVideo = document.getElementById('local-video');
-  const stream = await navigator.mediaDevices.getUserMedia({
+  localStream = await navigator.mediaDevices.getUserMedia({
     video: {
       height: 720,
-      width: 1280
+      width: 1280,
+      // frameRate: { ideal: 30 }
     },
     audio: true
   });
-  localVideo.srcObject = stream;
-  stream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, stream);
+  localVideo.srcObject = localStream;
+  localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
   });
   handleTrack();
 }
@@ -98,15 +118,41 @@ const getVideos = async () => {
 //   });
 // }
 
+const localICECondidate = () => {
+  peerConnection.onicecandidate = (event) => {
+    if(event.candidate) {
+      console.log(event.candidate);
+      socket.emit('ice-candidate', {
+        candidate: event.candidate,
+        to: correspondingUser
+      });
+    }
+  }
+  onICECandidate(); // Listen To Remote ICE Candidates
+}
+
+const onICECandidate = () => {
+  socket.on('candidate', async (data) => {
+    const candidate = data.candidate;
+    if(candidate) {
+      console.log(candidate);
+      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+  });
+}
+
 const listenToCall = () => {
   socket.on('call-made', async ({ offer, caller }) => {
-    await peerConnection.setRemoteDescription(offer);
+    // peerConnection = new RTCPeerConnection(servers);
+    console.log(peerConnection);
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
+    localICECondidate(); // Listen To Local ICE Candidates
     const endCallButton = document.getElementById('end-call');
     endCallButton.classList.add('visible');
-    user = caller;
-    getVideos(); // Display Local and Remote Videos
+    correspondingUser = caller;
+    await getVideos(); // Display Local and Remote Videos
     socket.emit('make-answer', {
       answer,
       to: caller
@@ -116,8 +162,8 @@ const listenToCall = () => {
 
 const listenToAnswer = () => {
   socket.on('answer-made', async ({ answer }) => {
-    await peerConnection.setRemoteDescription(answer);
-    getVideos(); // Display Local and Remote Videos
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    await getVideos(); // Display Local and Remote Videos
   });
 }
 
@@ -125,24 +171,28 @@ const endCall = () => {
   const endCallButton = document.getElementById('end-call');
   endCallButton.addEventListener('click', () => {
     console.log('end call');
-    const stream = document.getElementById('local-video').srcObject;
+    const localVideo = document.getElementById('local-video');
     const remoteVideo = document.getElementById('remote-video');
     const endCallButton = document.getElementById('end-call');
-    stream.getTracks().forEach(track => track.stop());
+    peerConnection.close();
+    localStream.getTracks().forEach(track => track.stop());
+    localVideo.srcObject = null;
     remoteVideo.srcObject = null;
     endCallButton.classList.remove('visible');
-    console.log('User' + user);
-    socket.emit('end-call', user);
+    console.log('User' + correspondingUser);
+    socket.emit('end-call', correspondingUser);
   });
 }
 
 const callEnded = () => {
   socket.on('call-ended', () => {
     console.log('call ended');
-    const stream = document.getElementById('local-video').srcObject;
+    const localVideo = document.getElementById('local-video');
     const remoteVideo = document.getElementById('remote-video');
     const endCallButton = document.getElementById('end-call');
-    stream.getTracks().forEach(track => track.stop());
+    peerConnection.close();
+    localStream.getTracks().forEach(track => track.stop());
+    localVideo.srcObject = null;
     remoteVideo.srcObject = null;
     endCallButton.classList.remove('visible');
   });
