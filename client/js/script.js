@@ -1,16 +1,16 @@
-import config from "../config/index.js";
+import config from '../config/index.js';
 
-const url = config.production.url;
+const url = config.development.url;
 const socket = io(url, {
-  withCredentials: true
+  withCredentials: true,
 });
 
 const servers = {
   iceServers: [
     {
-      urls: ['stun:stun.l.google.com:19302']
-    }
-  ]
+      urls: ['stun:stun.l.google.com:19302'],
+    },
+  ],
 };
 
 const peerConnection = new RTCPeerConnection(servers);
@@ -25,6 +25,33 @@ let correspondingUser;
 //   });
 // }
 
+const onICECandidate = () => {
+  socket.on('candidate', async (data) => {
+    const candidate = data.candidate;
+    if (candidate) {
+      console.log(candidate);
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+  });
+};
+
+const localICECondidate = () => {
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      console.log(event.candidate);
+      socket.emit('ice-candidate', {
+        candidate: event.candidate,
+        to: correspondingUser,
+      });
+    }
+  };
+  onICECandidate(); // Listen To Remote ICE Candidates
+};
+
 const listenToClick = (card) => {
   card.addEventListener('click', async () => {
     // peerConnection = new RTCPeerConnection(servers);;
@@ -37,11 +64,11 @@ const listenToClick = (card) => {
     correspondingUser = card.id;
     socket.emit('call-user', {
       offer,
-      to: card.id
+      to: card.id,
     });
     console.log(offer);
   });
-}
+};
 
 const userCard = ({ id, username }) => {
   const card = document.createElement('div');
@@ -52,30 +79,30 @@ const userCard = ({ id, username }) => {
   `;
   listenToClick(card);
   return card;
-}
+};
 
 const createUsers = (users) => {
   const usersContainer = document.querySelector('.users-container');
   console.log(users);
-  users.forEach(user => {
+  users.forEach((user) => {
     const existingUser = document.getElementById(user.id);
-    if(!existingUser) {
+    if (!existingUser) {
       const card = userCard(user);
       usersContainer.append(card);
     }
   });
-}
+};
 
 const getUsers = () => {
   socket.on('users-list', (users) => {
     createUsers(users);
   });
-}
+};
 
 const removeUser = () => {
   socket.on('remove-user', (userId) => {
     const userCard = document.getElementById(userId);
-    if(correspondingUser === userCard.id) {
+    if (correspondingUser === userCard.id) {
       const remoteVideo = document.getElementById('remote-video');
       const endCallButton = document.getElementById('end-call');
       remoteVideo.srcObject = null;
@@ -83,32 +110,35 @@ const removeUser = () => {
     }
     userCard.remove();
   });
-}
+};
 
 const handleTrack = () => {
   const remoteVideo = document.getElementById('remote-video');
+  console.log(remoteVideo);
   peerConnection.ontrack = (event) => {
+    console.log(event);
     remoteStream = event.streams[0];
     remoteVideo.srcObject = remoteStream;
-  }
-}
+  };
+};
 
 const getVideos = async () => {
   const localVideo = document.getElementById('local-video');
+  handleTrack();
   localStream = await navigator.mediaDevices.getUserMedia({
     video: {
       height: 720,
       width: 1280,
       // frameRate: { ideal: 30 }
     },
-    audio: true
+    audio: true,
   });
   localVideo.srcObject = localStream;
-  localStream.getTracks().forEach(track => {
+  localStream.getTracks().forEach((track) => {
+    console.log(track);
     peerConnection.addTrack(track, localStream);
   });
-  handleTrack();
-}
+};
 
 // const callUser = () => {
 //   const onlineUsers = document.querySelectorAll('.user');
@@ -117,29 +147,6 @@ const getVideos = async () => {
 //     listenToClick(user);
 //   });
 // }
-
-const localICECondidate = () => {
-  peerConnection.onicecandidate = (event) => {
-    if(event.candidate) {
-      console.log(event.candidate);
-      socket.emit('ice-candidate', {
-        candidate: event.candidate,
-        to: correspondingUser
-      });
-    }
-  }
-  onICECandidate(); // Listen To Remote ICE Candidates
-}
-
-const onICECandidate = () => {
-  socket.on('candidate', async (data) => {
-    const candidate = data.candidate;
-    if(candidate) {
-      console.log(candidate);
-      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    }
-  });
-}
 
 const listenToCall = () => {
   socket.on('call-made', async ({ offer, caller }) => {
@@ -155,17 +162,19 @@ const listenToCall = () => {
     await getVideos(); // Display Local and Remote Videos
     socket.emit('make-answer', {
       answer,
-      to: caller
+      to: caller,
     });
   });
-}
+};
 
 const listenToAnswer = () => {
   socket.on('answer-made', async ({ answer }) => {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    await peerConnection.setRemoteDescription(
+      new RTCSessionDescription(answer)
+    );
     await getVideos(); // Display Local and Remote Videos
   });
-}
+};
 
 const endCall = () => {
   const endCallButton = document.getElementById('end-call');
@@ -175,14 +184,14 @@ const endCall = () => {
     const remoteVideo = document.getElementById('remote-video');
     const endCallButton = document.getElementById('end-call');
     peerConnection.close();
-    localStream.getTracks().forEach(track => track.stop());
+    localStream.getTracks().forEach((track) => track.stop());
     localVideo.srcObject = null;
     remoteVideo.srcObject = null;
     endCallButton.classList.remove('visible');
     console.log('User' + correspondingUser);
     socket.emit('end-call', correspondingUser);
   });
-}
+};
 
 const callEnded = () => {
   socket.on('call-ended', () => {
@@ -191,12 +200,12 @@ const callEnded = () => {
     const remoteVideo = document.getElementById('remote-video');
     const endCallButton = document.getElementById('end-call');
     peerConnection.close();
-    localStream.getTracks().forEach(track => track.stop());
+    localStream.getTracks().forEach((track) => track.stop());
     localVideo.srcObject = null;
     remoteVideo.srcObject = null;
     endCallButton.classList.remove('visible');
   });
-}
+};
 
 socket.on('connect', () => {
   console.log('connected');
@@ -215,7 +224,5 @@ socket.on('connect', () => {
     listenToAnswer(); // Listen To Answer From The Recipent To Start The Meet
     endCall(); // End The Call By Removing Remote Video
     callEnded(); // Listen If The Call Has Been Ended By The Corresponding User
-  }
+  };
 });
-
-
